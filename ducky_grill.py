@@ -1,10 +1,14 @@
 import usb.core
 import hid
 import time
+import pyglet
+from pygame import mixer
 from threading import *
 
 printLock = Semaphore(value = 1)
 dictionaryLock = Semaphore(value = 1)
+
+q = True
 
 dictionary = {
 4 : "A",
@@ -79,13 +83,22 @@ def state_machine(idV, idP, goal):
                 ret = h.read(16)
                 for i in ret:
                     if i > 3:
+
                         print i
+                        if q:
+                            try:
+                                mixer.init()
+                                quack = mixer.Sound('quack1.wav')
+                                quack.play()
+                            except:
+                                pass
+
                         dictionaryLock.acquire()
-                        if i in dictionary.keys() and dictionary[i] == goal[state]:
+                        if (i in dictionary.keys()) and dictionary[i] == goal[state]:
                             state += 1
                         else:
                             state = 0
-                            if dictionary[i] == goal[state]:
+                            if (i in dictionary.keys()) and dictionary[i] == goal[state]:
                                 state += 1
                         dictionaryLock.release()
                         break
