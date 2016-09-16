@@ -32,7 +32,21 @@ def handle_new_device(dev):
         printLock.acquire()
         print "new device inserted"
         print getId(dev)
-        print dev
+
+        for cfg in dev:
+            for intf in cfg:
+                if intf.bInterfaceClass == 3:
+                    reattach = False
+                    # if dev.is_kernel_driver_active(intf.bInterfaceNumber):
+                    #     reattach = True
+                    dev.detach_kernel_driver(0)
+                    dev.set_configuration(cfg)
+                    # for ep in intf:
+                    #     print ep.bEndpointAddress
+                    #     ret = dev.read(ep.bEndpointAddress, ep.wMaxPacketSize, 100)
+                    #     print ret
+                    # if reattach:
+                    dev.attach_kernel_driver(0)
     finally:
         printLock.release()
 
