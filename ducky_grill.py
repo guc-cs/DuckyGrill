@@ -4,31 +4,42 @@ from threading import *
 
 printLock = Semaphore(value = 1)
 
-def handle_new_device(idV, idP, bus, add):
+def getId(dev):
+    return (dev.idVendor, dev.idProduct, dev.bus, dev.address)
+
+def handle_new_device(dev):
     try:
         printLock.acquire()
         print "new device inserted"
-        print (idV, idP, bus, add)
+        print getId(dev)
     finally:
         printLock.release()
 
-def main():
-    devices = set( (dev.idVendor, dev.idProduct, dev.bus, dev.address) for dev in usb.core.find(find_all=True) )
-
+def detect_hot_plug():
+    devices =  list(usb.core.find(find_all=True))
+    devices_set = set( getId(dev) for dev in devices )
     while True:
         try:
-            dev2 = set( (dev.idVendor, dev.idProduct, dev.bus, dev.address) for dev in usb.core.find(find_all=True) )
-            if len(dev2) > len(devices) and dev2 != devices:
-                for dev in list(dev2 - devices):
-                    t = Thread(target = handle_new_device, args = dev)
+            dev_new = list(usb.core.find(find_all=True))
+            dev_new_set = set( getId(dev) for dev in dev_new )
+            new_dev_id = set(dev_new_set) - set(devices_set)
+            if len(new_dev_id) > 0 :
+                for id in new_dev_id:
+                    new_dev = (x for x in dev_new if getId(x) == id)
+                    t = Thread(target = handle_new_device, args = new_dev)
                     t.start()
-            devices = dev2
+            devices = dev_new
+            devices_set = dev_new_set
             time.sleep(1)
-        except:
+        except Exception, e:
             printLock.acquire()
             print ""
+            print e
             printLock.release()
             break
+
+def main():
+    detect_hot_plug()
 
 if __name__ == "__main__":
     main()
