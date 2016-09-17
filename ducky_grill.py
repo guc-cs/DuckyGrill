@@ -113,7 +113,7 @@ def state_machine(h, goal):
             except IOError, e:
                 break
     except IOError, e:
-        print e
+        pass
     finally:
         h.close()
 
@@ -135,7 +135,6 @@ def detect_hot_plug():
             devices_set = dev_new_set
             #time.sleep(1)
         except Exception, e:
-            print e
             break
 
 def main():
