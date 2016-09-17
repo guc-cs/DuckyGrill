@@ -1,14 +1,13 @@
 import usb.core
 import hid
 import time
-import pyglet
 from pygame import mixer
 from threading import *
 
 printLock = Semaphore(value = 1)
 dictionaryLock = Semaphore(value = 1)
 
-q = True
+qu = True
 
 dictionary = {
 4 : "A",
@@ -73,74 +72,70 @@ class find_class(object):
 def getId(dev):
     return (dev.idVendor, dev.idProduct, dev.bus, dev.address)
 
-def state_machine(idV, idP, goal):
+def state_machine(h, goal):
     state = 0
     try:
-        h = hid.device()
-        h.open(idV, idP)
         while True:
             try:
-                ret = h.read(16)
+                ret = h.read(8)
                 for i in ret:
                     if i > 3:
-
-                        print i
-                        if q:
+                        try:
+                            printLock.acquire()
+                            print i
+                        finally:
+                            printLock.release()
+                        if qu:
                             try:
                                 mixer.init()
                                 quack = mixer.Sound('quack1.wav')
                                 quack.play()
                             except:
                                 pass
-
-                        dictionaryLock.acquire()
-                        if (i in dictionary.keys()) and dictionary[i] == goal[state]:
-                            state += 1
-                        else:
-                            state = 0
+                        try:
+                            dictionaryLock.acquire()
                             if (i in dictionary.keys()) and dictionary[i] == goal[state]:
                                 state += 1
-                        dictionaryLock.release()
-                        break
+                            else:
+                                state = 0
+                                if (i in dictionary.keys()) and dictionary[i] == goal[state]:
+                                    state += 1
+                        finally:
+                            dictionaryLock.release()
+                            break
                 if state == len(goal):
-                    print "Access granted"
+                    try:
+                        printLock.acquire()
+                        print "Access granted"
+                    finally:
+                        printLock.release()
                     break
             except IOError, e:
                 break
     except IOError, e:
-        pass
+        print e
     finally:
         h.close()
 
-def handle_new_device(dev, goal):
-    try:
-        printLock.acquire()
-        print "new device inserted"
-        print getId(dev)
-    finally:
-        printLock.release()
-    state_machine(dev.idVendor, dev.idProduct, goal)
-
 def detect_hot_plug():
-    devices =  list(usb.core.find(find_all=True, custom_match=find_class(3)))
-    devices_set = set( getId(dev) for dev in devices )
+    devices_set = set( getId(dev) for dev in usb.core.find(find_all=True, custom_match=find_class(3)) )
     while True:
         try:
             dev_new = list(usb.core.find(find_all=True, custom_match=find_class(3)))
             dev_new_set = set( getId(dev) for dev in dev_new )
-            new_dev_id = set(dev_new_set) - set(devices_set)
-            if len(new_dev_id) > 0 :
-                for id in new_dev_id:
-                    dev = [x for x in dev_new if getId(x) == id]
-                    t = Thread(target = handle_new_device, args = (dev[0], "ABCD"))
+            diff = set(dev_new_set) - set(devices_set)
+            if len(diff) > 0 :
+                for dev in diff:
+                    print "new device inserted"
+                    print dev
+                    h = hid.device()
+                    h.open(dev[0], dev[1])
+                    t = Thread(target = state_machine, args = (h, "ABCD"))
                     t.start()
-            devices = dev_new
             devices_set = dev_new_set
-            time.sleep(1)
-        except:
-            printLock.acquire()
-            print ""
-            printLock.release()
+            #time.sleep(1)
+        except Exception, e:
+            print e
             break
 
 def main():
